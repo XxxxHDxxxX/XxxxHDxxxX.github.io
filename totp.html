@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOTP 验证码生成器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: #e94560;
+        }
+        .account-name {
+            font-size: 1rem;
+            color: #aaa;
+            margin-bottom: 30px;
+        }
+        .totp-code {
+            font-size: 3.5rem;
+            font-weight: bold;
+            letter-spacing: 8px;
+            color: #0f3460;
+            background: linear-gradient(135deg, #e94560, #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 20px;
+            font-family: 'Courier New', monospace;
+        }
+        .timer-container {
+            margin-bottom: 20px;
+        }
+        .timer-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .timer-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #e94560, #ff6b6b);
+            transition: width 1s linear;
+            border-radius: 3px;
+        }
+        .timer-text {
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-top: 8px;
+        }
+        .copy-btn {
+            background: linear-gradient(135deg, #e94560, #ff6b6b);
+            border: none;
+            color: white;
+            padding: 12px 30px;
+            font-size: 1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .copy-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(233, 69, 96, 0.4);
+        }
+        .copy-btn:active {
+            transform: translateY(0);
+        }
+        .copied {
+            background: linear-gradient(135deg, #27ae60, #2ecc71) !important;
+        }
+        .settings {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .settings input {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 10px 15px;
+            color: #fff;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .settings input::placeholder {
+            color: #aaa;
+        }
+        .settings label {
+            display: block;
+            text-align: left;
+            margin-bottom: 5px;
+            color: #aaa;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TOTP 验证码</h1>
+        <div class="account-name" id="accountName">yiqin_zhou</div>
+
+        <div class="totp-code" id="totpCode">------</div>
+
+        <div class="timer-container">
+            <div class="timer-bar">
+                <div class="timer-progress" id="timerProgress"></div>
+            </div>
+            <div class="timer-text">剩余 <span id="timeLeft">30</span> 秒刷新</div>
+        </div>
+
+        <button class="copy-btn" id="copyBtn" onclick="copyCode()">复制验证码</button>
+
+        <div class="settings">
+            <label>账户名称</label>
+            <input type="text" id="nameInput" placeholder="账户名称" value="yiqin_zhou" onchange="updateSettings()">
+            <label>密钥 (Base32)</label>
+            <input type="text" id="secretInput" placeholder="Base32 密钥" value="lo3umw5xkb6e34y2" onchange="updateSettings()">
+        </div>
+    </div>
+
+    <script>
+        // Base32 解码
+        function base32Decode(input) {
+            const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+            let bits = '';
+            let output = [];
+
+            input = input.toUpperCase().replace(/[^A-Z2-7]/g, '');
+
+            for (let char of input) {
+                const val = alphabet.indexOf(char);
+                bits += val.toString(2).padStart(5, '0');
+            }
+
+            for (let i = 0; i + 8 <= bits.length; i += 8) {
+                output.push(parseInt(bits.substr(i, 8), 2));
+            }
+
+            return new Uint8Array(output);
+        }
+
+        // HMAC-SHA1 实现
+        async function hmacSha1(key, message) {
+            const cryptoKey = await crypto.subtle.importKey(
+                'raw',
+                key,
+                { name: 'HMAC', hash: 'SHA-1' },
+                false,
+                ['sign']
+            );
+            const signature = await crypto.subtle.sign('HMAC', cryptoKey, message);
+            return new Uint8Array(signature);
+        }
+
+        // 生成 TOTP
+        async function generateTOTP(secret, timeStep = 30, digits = 6) {
+            const key = base32Decode(secret);
+            const time = Math.floor(Date.now() / 1000 / timeStep);
+
+            // 将时间转换为 8 字节大端序
+            const timeBuffer = new ArrayBuffer(8);
+            const timeView = new DataView(timeBuffer);
+            timeView.setUint32(4, time, false);
+
+            const hmac = await hmacSha1(key, new Uint8Array(timeBuffer));
+
+            // 动态截断
+            const offset = hmac[hmac.length - 1] & 0x0f;
+            const binary = ((hmac[offset] & 0x7f) << 24) |
+                          ((hmac[offset + 1] & 0xff) << 16) |
+                          ((hmac[offset + 2] & 0xff) << 8) |
+                          (hmac[offset + 3] & 0xff);
+
+            const otp = binary % Math.pow(10, digits);
+            return otp.toString().padStart(digits, '0');
+        }
+
+        // 配置
+        let config = {
+            name: 'yiqin_zhou',
+            secret: 'lo3umw5xkb6e34y2'
+        };
+
+        // 更新显示
+        async function updateDisplay() {
+            try {
+                const code = await generateTOTP(config.secret);
+                document.getElementById('totpCode').textContent = code.slice(0, 3) + ' ' + code.slice(3);
+
+                const now = Math.floor(Date.now() / 1000);
+                const timeLeft = 30 - (now % 30);
+                const progress = (timeLeft / 30) * 100;
+
+                document.getElementById('timeLeft').textContent = timeLeft;
+                document.getElementById('timerProgress').style.width = progress + '%';
+            } catch (e) {
+                document.getElementById('totpCode').textContent = '密钥错误';
+            }
+        }
+
+        // 复制验证码
+        function copyCode() {
+            const code = document.getElementById('totpCode').textContent.replace(' ', '');
+            navigator.clipboard.writeText(code).then(() => {
+                const btn = document.getElementById('copyBtn');
+                btn.textContent = '已复制!';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = '复制验证码';
+                    btn.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
+        // 更新设置
+        function updateSettings() {
+            config.name = document.getElementById('nameInput').value;
+            config.secret = document.getElementById('secretInput').value;
+            document.getElementById('accountName').textContent = config.name;
+            updateDisplay();
+        }
+
+        // 启动
+        updateDisplay();
+        setInterval(updateDisplay, 1000);
+    </script>
+</body>
+</html>
