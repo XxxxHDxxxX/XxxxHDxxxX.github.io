@@ -3,145 +3,353 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TOTP 验证码生成器</title>
+    <title>验证码 - iCloud</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
+        
+        :root {
+            --bg-color: #000;
+            --card-bg: rgba(29, 29, 31, 0.72);
+            --text-primary: #fff;
+            --text-secondary: rgba(255, 255, 255, 0.6);
+            --text-tertiary: rgba(255, 255, 255, 0.3);
+            --border-color: rgba(255, 255, 255, 0.15);
+            --border-subtle: rgba(255, 255, 255, 0.1);
+            --input-bg: rgba(255, 255, 255, 0.08);
+            --input-border: rgba(255, 255, 255, 0.15);
+            --accent-color: #0a84ff;
+            --accent-hover: #0070e0;
+            --success-color: #30d158;
+            --timer-bg: rgba(255, 255, 255, 0.1);
+        }
+        
+        body.light-theme {
+            --bg-color: #f5f5f7;
+            --card-bg: rgba(255, 255, 255, 0.9);
+            --text-primary: #1d1d1f;
+            --text-secondary: #86868b;
+            --text-tertiary: #b0b0b5;
+            --border-color: rgba(0, 0, 0, 0.1);
+            --border-subtle: rgba(0, 0, 0, 0.06);
+            --input-bg: rgba(0, 0, 0, 0.04);
+            --input-border: rgba(0, 0, 0, 0.12);
+            --accent-color: #007aff;
+            --accent-hover: #0051d5;
+            --success-color: #34c759;
+            --timer-bg: rgba(0, 0, 0, 0.08);
+        }
+        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+            background: var(--bg-color);
             min-height: 100vh;
+            color: var(--text-primary);
+            transition: background-color 0.3s ease;
+        }
+        
+        .header {
+            background: var(--card-bg);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 0.5px solid var(--border-subtle);
+            padding: 0 20px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+        }
+        
+        .header-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.3px;
+        }
+        
+        .theme-toggle {
+            background: transparent;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s ease;
+            color: var(--text-primary);
+        }
+        
+        .theme-toggle:hover {
+            background: var(--input-bg);
+        }
+        
+        .theme-toggle svg {
+            width: 20px;
+            height: 20px;
+        }
+        
+        .main-content {
+            margin-top: 52px;
+            padding: 60px 20px;
             display: flex;
             justify-content: center;
             align-items: center;
-            color: #fff;
+            min-height: calc(100vh - 52px);
         }
-        .container {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 40px;
+        
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-radius: 18px;
+            border: 0.5px solid var(--border-color);
+            padding: 48px 40px;
+            max-width: 480px;
+            width: 100%;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        }
+        
+        .card-header {
             text-align: center;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 40px;
+            padding-bottom: 32px;
+            border-bottom: 0.5px solid var(--border-subtle);
         }
-        h1 {
-            font-size: 1.5rem;
-            margin-bottom: 10px;
-            color: #e94560;
+        
+        .card-title {
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
         }
+        
         .account-name {
-            font-size: 1rem;
-            color: #aaa;
-            margin-bottom: 30px;
+            font-size: 15px;
+            color: var(--text-secondary);
+            font-weight: 400;
         }
+        
+        .code-display {
+            text-align: center;
+            margin-bottom: 36px;
+        }
+        
         .totp-code {
-            font-size: 3.5rem;
-            font-weight: bold;
-            letter-spacing: 8px;
-            color: #0f3460;
-            background: linear-gradient(135deg, #e94560, #ff6b6b);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 20px;
-            font-family: 'Courier New', monospace;
+            font-size: 52px;
+            font-weight: 300;
+            letter-spacing: 16px;
+            color: var(--accent-color);
+            margin-bottom: 24px;
+            font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+            font-variant-numeric: tabular-nums;
         }
+        
         .timer-container {
-            margin-bottom: 20px;
+            margin-bottom: 32px;
         }
+        
         .timer-bar {
             width: 100%;
-            height: 6px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 3px;
+            height: 3px;
+            background: var(--timer-bg);
+            border-radius: 1.5px;
             overflow: hidden;
+            margin-bottom: 12px;
         }
+        
         .timer-progress {
             height: 100%;
-            background: linear-gradient(90deg, #e94560, #ff6b6b);
+            background: var(--accent-color);
             transition: width 1s linear;
-            border-radius: 3px;
+            border-radius: 1.5px;
         }
+        
         .timer-text {
-            font-size: 0.9rem;
-            color: #aaa;
-            margin-top: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-align: center;
+            font-weight: 400;
         }
+        
+        .button-group {
+            margin-bottom: 32px;
+        }
+        
         .copy-btn {
-            background: linear-gradient(135deg, #e94560, #ff6b6b);
+            background: var(--accent-color);
             border: none;
-            color: white;
-            padding: 12px 30px;
-            font-size: 1rem;
-            border-radius: 25px;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .copy-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(233, 69, 96, 0.4);
-        }
-        .copy-btn:active {
-            transform: translateY(0);
-        }
-        .copied {
-            background: linear-gradient(135deg, #27ae60, #2ecc71) !important;
-        }
-        .settings {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .settings input {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 8px;
-            padding: 10px 15px;
             color: #fff;
+            padding: 11px 20px;
+            font-size: 15px;
+            font-weight: 500;
+            border-radius: 9px;
+            cursor: pointer;
+            transition: all 0.15s ease;
             width: 100%;
-            margin-bottom: 10px;
+            letter-spacing: -0.2px;
         }
-        .settings input::placeholder {
-            color: #aaa;
+        
+        .copy-btn:hover {
+            background: var(--accent-hover);
         }
-        .settings label {
+        
+        .copy-btn:active {
+            transform: scale(0.98);
+            opacity: 0.9;
+        }
+        
+        .copied {
+            background: var(--success-color) !important;
+        }
+        
+        .settings {
+            padding-top: 32px;
+            border-top: 0.5px solid var(--border-subtle);
+        }
+        
+        .settings-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+        }
+        
+        .input-group {
+            margin-bottom: 16px;
+        }
+        
+        .input-label {
             display: block;
-            text-align: left;
-            margin-bottom: 5px;
-            color: #aaa;
-            font-size: 0.85rem;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: -0.1px;
+        }
+        
+        .input-field {
+            background: var(--input-bg);
+            border: 0.5px solid var(--input-border);
+            border-radius: 7px;
+            padding: 10px 12px;
+            color: var(--text-primary);
+            width: 100%;
+            font-size: 15px;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+        
+        .input-field:focus {
+            outline: none;
+            background: var(--input-bg);
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.15);
+        }
+        
+        .input-field::placeholder {
+            color: var(--text-tertiary);
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>TOTP 验证码</h1>
-        <div class="account-name" id="accountName">yiqin_zhou</div>
+    <div class="header">
+        <div class="header-title">验证码</div>
+        <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle" aria-label="切换主题">
+            <svg id="sunIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display: none;">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            <svg id="moonIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+        </button>
+    </div>
 
-        <div class="totp-code" id="totpCode">------</div>
-
-        <div class="timer-container">
-            <div class="timer-bar">
-                <div class="timer-progress" id="timerProgress"></div>
+    <div class="main-content">
+        <div class="card">
+            <div class="card-header">
+                <h1 class="card-title">双重认证</h1>
+                <div class="account-name" id="accountName">yiqin_zhou</div>
             </div>
-            <div class="timer-text">剩余 <span id="timeLeft">30</span> 秒刷新</div>
-        </div>
 
-        <button class="copy-btn" id="copyBtn" onclick="copyCode()">复制验证码</button>
+            <div class="code-display">
+                <div class="totp-code" id="totpCode">------</div>
+            </div>
 
-        <div class="settings">
-            <label>账户名称</label>
-            <input type="text" id="nameInput" placeholder="账户名称" value="yiqin_zhou" onchange="updateSettings()">
-            <label>密钥 (Base32)</label>
-            <input type="text" id="secretInput" placeholder="Base32 密钥" value="lo3umw5xkb6e34y2" onchange="updateSettings()">
+            <div class="timer-container">
+                <div class="timer-bar">
+                    <div class="timer-progress" id="timerProgress"></div>
+                </div>
+                <div class="timer-text">代码将在 <span id="timeLeft">30</span> 秒后过期</div>
+            </div>
+
+            <div class="button-group">
+                <button class="copy-btn" id="copyBtn" onclick="copyCode()">拷贝验证码</button>
+            </div>
+
+            <div class="settings">
+                <div class="settings-title">设置</div>
+                <div class="input-group">
+                    <label class="input-label">账户名称</label>
+                    <input type="text" class="input-field" id="nameInput" placeholder="输入账户名称" value="yiqin_zhou" onchange="updateSettings()">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">密钥 (Base32)</label>
+                    <input type="text" class="input-field" id="secretInput" placeholder="输入 Base32 密钥" value="lo3umw5xkb6e34y2" onchange="updateSettings()">
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
+        // 主题切换
+        function toggleTheme() {
+            const body = document.body;
+            const sunIcon = document.getElementById('sunIcon');
+            const moonIcon = document.getElementById('moonIcon');
+            
+            body.classList.toggle('light-theme');
+            
+            if (body.classList.contains('light-theme')) {
+                sunIcon.style.display = 'block';
+                moonIcon.style.display = 'none';
+                localStorage.setItem('theme', 'light');
+            } else {
+                sunIcon.style.display = 'none';
+                moonIcon.style.display = 'block';
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+        
+        // 加载保存的主题
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const sunIcon = document.getElementById('sunIcon');
+            const moonIcon = document.getElementById('moonIcon');
+            
+            // 默认使用白天主题
+            if (savedTheme === 'dark') {
+                sunIcon.style.display = 'none';
+                moonIcon.style.display = 'block';
+            } else {
+                document.body.classList.add('light-theme');
+                sunIcon.style.display = 'block';
+                moonIcon.style.display = 'none';
+            }
+        }
+
         // Base32 解码
         function base32Decode(input) {
             const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -226,10 +434,10 @@
             const code = document.getElementById('totpCode').textContent.replace(' ', '');
             navigator.clipboard.writeText(code).then(() => {
                 const btn = document.getElementById('copyBtn');
-                btn.textContent = '已复制!';
+                btn.textContent = '已拷贝';
                 btn.classList.add('copied');
                 setTimeout(() => {
-                    btn.textContent = '复制验证码';
+                    btn.textContent = '拷贝验证码';
                     btn.classList.remove('copied');
                 }, 2000);
             });
@@ -244,6 +452,7 @@
         }
 
         // 启动
+        loadTheme();
         updateDisplay();
         setInterval(updateDisplay, 1000);
     </script>
